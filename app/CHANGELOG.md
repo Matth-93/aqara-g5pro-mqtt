@@ -1,3 +1,10 @@
+## 1.6.43 — Start RTSP readers at the live edge instead of a GOP in the past
+
+- Stop replaying the cached GOP when a reader sends `PLAY`. It gave an instant first picture, but one a whole GOP old, and the RTP timestamps then kept that lag for the entire session because `RtpTimeline` deliberately preserves real gaps. Measured on a Camera Hub G3 (`lumi.camera.gwpgl1`, keyframe interval 1004 ms): the replay handed each new reader **20 frames spanning 953 ms** of stale video. A reader now waits for a fresh IDR — which `wait_idr` already gates correctly — and begins in the present.
+- Let a `PLAY`-triggered IDR request bypass the ordinary 1.5 s throttle, with a 300 ms floor instead. A reader that has just sent `PLAY` has no picture at all, so making it wait out the throttle costs far more than one extra IDR, while the floor still prevents a reconnect loop from storming the encoder.
+- Drop the now unread GOP cache, which accumulated up to 300 frames or 24 MiB per camera for a replay that no longer happens. The single cached IDR used by native snapshots is unchanged.
+- The RTSP acceptance test now broadcasts a keyframe after the reader joins, instead of relying on the replay.
+
 ## 1.6.42 — Direct single-axis Camera E1 PTZ steps
 
 - Omit preset backlash-compensation flags (`x_dir` / `y_dir`) from Camera E1 `ptz_position` writes so `fun_set_ptz_post` routes directly to `motor_cruise` (`ioctl 0xc01c6d01`) without overshooting or wiggling the unused axis, and refine default pan/tilt steps to `10°` / `5°`.

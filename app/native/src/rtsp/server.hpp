@@ -106,8 +106,6 @@ private:
     std::mutex keyframe_mutex_;
     VideoFrame cached_keyframe_;
     uint64_t snapshot_captured_at_ = 0;
-    std::vector<VideoFrame> cached_gop_;
-    size_t cached_gop_bytes_ = 0;
 
     std::chrono::steady_clock::time_point last_video_send_time_;
     std::chrono::steady_clock::time_point last_audio_send_time_;

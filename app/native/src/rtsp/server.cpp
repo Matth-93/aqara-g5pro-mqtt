@@ -281,8 +281,6 @@ void RTSPServer::hold_for_new_idr() {
         std::lock_guard<std::mutex> lock(keyframe_mutex_);
         cached_keyframe_ = VideoFrame{};
         snapshot_captured_at_ = 0;
-        cached_gop_.clear();
-        cached_gop_bytes_ = 0;
     }
     std::lock_guard<std::recursive_mutex> lock(clients_mutex_);
     for (auto& pair : clients_) {
@@ -499,28 +497,13 @@ void RTSPServer::process_rtsp_request(RTSPClient& client, const std::string& req
         if (!write_response(client, str))
             return;
 
-        // Replaying one cached IDR followed by live P-frames is invalid because
-        // those P-frames can reference intermediate pictures the client missed.
-        // Replay the complete current GOP instead; only force a fresh IDR when
-        // no complete GOP is available yet.
-        std::vector<VideoFrame> gop;
-        {
-            std::lock_guard<std::mutex> key_lock(keyframe_mutex_);
-            if (cached_gop_bytes_ <= 4 * 1024 * 1024)
-                gop = cached_gop_;
-        }
-        if (!gop.empty() && gop.front().is_keyframe) {
-            std::lock_guard<std::recursive_mutex> clients_lock(clients_mutex_);
-            client.wait_idr = false;
-            client.received_keyframe = true;
-            for (const auto& frame : gop) {
-                client.video_rtp_timestamp =
-                    frame.timestamp_ms > 0
-                        ? client.video_clock.map(static_cast<uint32_t>(frame.timestamp_ms * 90), 0, 4500)
-                        : client.video_clock.advance(4500);
-                send_video_to_client(client, frame);
-            }
-        } else if (kf_req_cb_) {
+        // Start at the live edge. Replaying the cached GOP gave an instant first
+        // picture, but one a whole GOP old (measured: 20 frames spanning 953 ms
+        // on a Camera Hub G3), and the RTP timestamps keep that lag for the
+        // whole session because RtpTimeline preserves real gaps on purpose.
+        // Waiting for a fresh IDR is the only way for a jitter-buffered reader
+        // to begin in the present; wait_idr already holds the P-frames until it.
+        if (kf_req_cb_) {
             kf_req_cb_();
         }
         return;
@@ -805,17 +788,6 @@ void RTSPServer::broadcast_video(const VideoFrame& vf) {
             snapshot_captured_at_ = std::chrono::duration_cast<std::chrono::milliseconds>(
                                         std::chrono::system_clock::now().time_since_epoch())
                                         .count();
-            cached_gop_.clear();
-            cached_gop_bytes_ = 0;
-        }
-        if (!cached_gop_.empty() || vf.is_keyframe) {
-            cached_gop_.push_back(vf);
-            cached_gop_bytes_ += vf.annex_b_data.size();
-            // Bound memory while retaining a useful current GOP.
-            if (cached_gop_.size() > 300 || cached_gop_bytes_ > 24 * 1024 * 1024) {
-                cached_gop_.clear();
-                cached_gop_bytes_ = 0;
-            }
         }
     }
 

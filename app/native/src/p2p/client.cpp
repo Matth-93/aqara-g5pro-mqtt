@@ -363,11 +363,15 @@ void P2PClient::send_login_if_due(int64_t min_interval_ms) {
     send_enc_drw(0, ch0_seq_++, login_frame.data(), login_frame.size());
 }
 
-void P2PClient::request_keyframe() {
+void P2PClient::request_keyframe(bool force) {
     const int64_t now = current_time_ms();
     int64_t prev = last_kf_req_sent_ms_.load();
-    if (prev != 0 && now - prev < 1500) {
-        return;  // Rate limit: at most 1 IDR request every 1.5s to prevent encoder stress
+    // A reader that has just sent PLAY has no picture at all, so making it wait
+    // out the ordinary throttle costs far more than one extra IDR. Keep a short
+    // floor so a reconnect loop still cannot storm the encoder.
+    const int64_t floor_ms = force ? 300 : 1500;
+    if (prev != 0 && now - prev < floor_ms) {
+        return;  // Rate limit to prevent encoder stress
     }
     if (!last_kf_req_sent_ms_.compare_exchange_strong(prev, now))
         return;  // Another reader/watchdog already requested this IDR.

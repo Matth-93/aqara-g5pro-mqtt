@@ -84,6 +84,9 @@ int main() {
         check(captured_at > 1700000000000ULL);
         check(clock_server.get_latest_annexb(&same_at) == video.annex_b_data && same_at == captured_at);
         const int reader = viewer(clock_server.get_port(), false, true);
+        // A reader that has just joined is held until the next keyframe: the
+        // server no longer replays the cached GOP, which was a whole GOP stale.
+        clock_server.broadcast_video(video);
         const auto first_video = timestamp(reader, 0);
         aqara::AudioFrame audio{.aac_adts_data = {0x21, 0x10}, .timestamp_ms = 1000};
         clock_server.broadcast_audio(audio);

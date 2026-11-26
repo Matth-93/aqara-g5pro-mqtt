@@ -51,7 +51,7 @@ void P2PClient::stop() {
         receiver.join();
     }
 }
-void P2PClient::request_keyframe() {
+void P2PClient::request_keyframe(bool) {
     {
         std::unique_lock<std::mutex> lock(gate_mutex);
         ++commands.at(this);

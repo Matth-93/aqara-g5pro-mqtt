@@ -39,7 +39,7 @@ public:
     bool start();
     void stop();
 
-    void request_keyframe();
+    void request_keyframe(bool force = false);
     void set_quality(int channel);
     bool ptz(const std::string& direction);
     void start_talkback();

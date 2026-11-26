@@ -35,7 +35,7 @@ StreamSession::StreamSession(const SessionConfig& config, std::function<void(con
         // reassembly state or gate existing readers. New clients have their own
         // wait_idr state; opening a preview must not pause ongoing recording.
         if (auto client = p2p_client())
-            client->request_keyframe();
+            client->request_keyframe(true);
     });
 
     rtsp_server_->set_initial_codec(config_.video_codec == "hevc");
