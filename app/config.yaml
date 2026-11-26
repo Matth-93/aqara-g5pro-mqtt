@@ -3,7 +3,7 @@ slug: "aqara-g5pro-mqtt"
 description: "MQTT integration for Aqara G5 Pro camera via Home Assistant"
 version: "1.6.43"
 changelog: "CHANGELOG.md"
-image: "ghcr.io/resonaura/aqara-g5pro-mqtt/{arch}"
+image: "ghcr.io/matth-93/aqara-g5pro-mqtt/{arch}"
 arch:
   - aarch64
   - amd64
